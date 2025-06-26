@@ -1,0 +1,9 @@
+# use a python3.12 env
+# install with pip install -r requirements.txt
+torch
+numpy
+matplotlib
+scipy
+scikit-learn
+gpytorch
+ipykernel
