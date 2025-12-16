@@ -1,18 +1,20 @@
+from typing import Callable, Optional
+
 import equinox as eqx
-import jax.numpy as jnp
-from jaxtyping import Array, PRNGKeyArray
-import jax.random as jrandom
-from typing import Callable
 import jax
+import jax.numpy as jnp
+import jax.random as jrandom
+from jaxtyping import Array, Float, PRNGKeyArray
 
 
-## BNN Layer
 class BayesLinear(eqx.Module):
-    mu_weight: Array
-    logsig_weight: Array
+    """Bayesian Linear Layer with Gaussian weight distributions."""
+
+    mu_weight: Float[Array, "out_features in_features"]
+    logsig_weight: Float[Array, "out_features in_features"]
+    mu_bias: Optional[Float[Array, "out_features"]]
+    logsig_bias: Optional[Float[Array, "out_features"]]
     use_bias: bool
-    mu_bias: Array
-    logsig_bias: Array
 
     def __init__(
         self,
@@ -21,45 +23,60 @@ class BayesLinear(eqx.Module):
         use_bias: bool = True,
         *,
         key: PRNGKeyArray,
-    ):
-        if use_bias:
-            w_key, b_key = jrandom.split(key)
-        else:
-            w_key = key
-        self.mu_weight = jrandom.normal(w_key, (out_features, in_features))
-        self.logsig_weight = 0.01 * jnp.ones((out_features, in_features))
+    ) -> None:
+        w_key, b_key = jrandom.split(key)
+
+        # Initialize with Xavier/Glorot-like scaling
+        scale = jnp.sqrt(2.0 / (in_features + out_features))
+        self.mu_weight = scale * jrandom.normal(w_key, (out_features, in_features))
+        self.logsig_weight = jnp.full((out_features, in_features), jnp.log(0.01))
+
         self.use_bias = use_bias
         if use_bias:
-            self.mu_bias = jrandom.normal(b_key, (out_features,))
-            self.logsig_bias = 0.01 * jnp.ones((out_features,))
+            self.mu_bias = jnp.zeros((out_features,))
+            self.logsig_bias = jnp.full((out_features,), jnp.log(0.01))
+        else:
+            self.mu_bias = None
+            self.logsig_bias = None
 
-    def __call__(self, x, key: PRNGKeyArray | None = None):
-        mu_out = jnp.dot(self.mu_weight, x)
+    def __call__(
+        self,
+        x: Float[Array, "*batch in_features"],
+        key: Optional[PRNGKeyArray] = None
+    ) -> Float[Array, "*batch out_features"]:
+        mu_out = x @ self.mu_weight.T
 
-        # sampled output vs map
         if key is not None:
+            # Sample weights: w ~ N(mu, sigma^2)
+            w_key, b_key = jrandom.split(key) if self.use_bias else (key, None)
+
+            sigma_weight = jnp.exp(self.logsig_weight)
+            weight_sample = self.mu_weight + sigma_weight * jrandom.normal(
+                w_key, self.mu_weight.shape
+            )
+            out = x @ weight_sample.T
+
             if self.use_bias:
-                w_key, b_key = jrandom.split(key)
-                bias = self.mu_bias + jnp.exp(self.logsig_bias) * jrandom.normal(
+                sigma_bias = jnp.exp(self.logsig_bias)
+                bias_sample = self.mu_bias + sigma_bias * jrandom.normal(
                     b_key, self.mu_bias.shape
                 )
-            else:
-                w_key = key
-                bias = 0.0
-
-            sig_out = jnp.dot(jnp.exp(self.logsig_weight), x)
-            out = mu_out + sig_out * jrandom.normal(w_key, mu_out.shape) + bias
+                out = out + bias_sample
         else:
+            # MAP estimate (use mean)
             out = mu_out
             if self.use_bias:
                 out = out + self.mu_bias
+
         return out
 
 
 class BNN(eqx.Module):
-    layers: list
-    activation: Callable | None
-    final_activation: Callable | None
+    """Bayesian Neural Network with Gaussian weight distributions."""
+
+    layers: list[BayesLinear]
+    activation: Optional[Callable]
+    final_activation: Optional[Callable]
 
     def __init__(
         self,
@@ -67,35 +84,62 @@ class BNN(eqx.Module):
         out_size: int,
         width_size: int,
         depth: int,
-        activation=jax.nn.relu,
-        final_activation=jax.nn.sigmoid,
+        activation: Optional[Callable] = jax.nn.relu,
+        final_activation: Optional[Callable] = jax.nn.sigmoid,
         use_bias: bool = True,
         use_final_bias: bool = True,
         *,
         key: PRNGKeyArray,
     ) -> None:
         keys = jrandom.split(key, depth + 1)
-        widths = [
-            in_size,
-        ] + depth * [width_size]
+
+        # Build hidden layers
         layers = []
-        for i in range(len(widths) - 1):
-            layers += [
-                BayesLinear(widths[i], widths[i + 1], use_bias=use_bias, key=keys[i])
-            ]
-        self.layers = layers + [
-            BayesLinear(widths[-1], out_size, use_bias=use_final_bias, key=keys[-1])
-        ]
+        layer_sizes = [in_size] + [width_size] * depth
+
+        for i in range(depth):
+            layers.append(
+                BayesLinear(
+                    layer_sizes[i],
+                    layer_sizes[i + 1],
+                    use_bias=use_bias,
+                    key=keys[i]
+                )
+            )
+
+        # Output layer
+        layers.append(
+            BayesLinear(
+                layer_sizes[-1],
+                out_size,
+                use_bias=use_final_bias,
+                key=keys[-1]
+            )
+        )
+
+        self.layers = layers
         self.activation = activation
         self.final_activation = final_activation
 
-    def __call__(self, x: Array, key: PRNGKeyArray | None) -> Array:
-        use_key = key is not None
-        if use_key:
+    def __call__(
+        self,
+        x: Float[Array, "*batch in_size"],
+        key: Optional[PRNGKeyArray] = None
+    ) -> Float[Array, "*batch out_size"]:
+        if key is not None:
             keys = jrandom.split(key, len(self.layers))
-        for i in range(len(self.layers) - 1):
-            x = self.activation(self.layers[i](x, keys[i] if use_key else None))
-        x = self.layers[-1](x, keys[-1] if use_key else None)
-        if self.final_activation:
+        else:
+            keys = [None] * len(self.layers)
+
+        # Hidden layers with activation
+        for layer, layer_key in zip(self.layers[:-1], keys[:-1]):
+            x = layer(x, layer_key)
+            if self.activation is not None:
+                x = self.activation(x)
+
+        # Output layer
+        x = self.layers[-1](x, keys[-1])
+        if self.final_activation is not None:
             x = self.final_activation(x)
+
         return x
