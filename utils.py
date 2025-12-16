@@ -2,10 +2,13 @@ import chex
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+import jax.random as jrandom
 import matplotlib.pyplot as plt
 import sklearn.datasets
-from jaxtyping import Array, Float, Int
+from jaxtyping import Array, Float, Int, PRNGKeyArray
 from matplotlib.collections import PathCollection
+
+from bnn import BNN
 
 
 # ============================================================================
@@ -34,6 +37,64 @@ def bin_ce(p: Float[Array, "..."], label: Int[Array, "..."]) -> Float[Array, "..
 def pred_ensemble(model: eqx.nn.MLP, x: Float[Array, "d"]) -> Float[Array, ""]:
     """Predict with ensemble member."""
     return model(x)
+
+
+def pred_bnn_samples(
+    model: BNN,  # BNN type
+    x: Float[Array, "d"],
+    n_samples: int,
+    key: PRNGKeyArray,
+) -> Float[Array, "n_samples"]:
+    """Get multiple predictions from BNN for uncertainty estimation.
+
+    Args:
+        model: BNN network
+        x: Input point [d]
+        n_samples: Number of samples to draw
+        key: PRNG key
+
+    Returns:
+        Predictions [n_samples]
+    """
+    keys = jrandom.split(key, n_samples)
+    return jax.vmap(lambda k: model(x, k))(keys).squeeze()
+
+
+def pred_bnn_ensemble(
+    model,  # BNN type
+    x: Float[Array, "n d"],
+    n_samples: int,
+    key: PRNGKeyArray,
+) -> Float[Array, "n n_samples"]:
+    """Get ensemble predictions for multiple inputs.
+
+    Args:
+        model: BNN network
+        x: Input points [n, d]
+        n_samples: Number of samples per input
+        key: PRNG key
+
+    Returns:
+        Predictions [n, n_samples]
+    """
+    keys = jrandom.split(key, x.shape[0])
+    return jax.vmap(lambda xi, ki: pred_bnn_samples(model, xi, n_samples, ki))(x, keys)
+
+
+def uncertainty_decomposition_bnn(
+    prob: Float[Array, "n_samples n_mc_samples"]
+) -> tuple[Float[Array, "n_samples"], Float[Array, "n_samples"], Float[Array, "n_samples"]]:
+    """Decompose BNN predictive uncertainty (same as ensemble version).
+
+    Args:
+        prob: Predictions from BNN samples [n_samples, n_mc_samples]
+
+    Returns:
+        total: Total uncertainty (entropy of mean prediction)
+        aleatoric: Aleatoric uncertainty (expected entropy)
+        epistemic: Epistemic uncertainty (difference)
+    """
+    return uncertainty_decomposition(prob)
 
 
 def uncertainty_decomposition(

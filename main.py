@@ -14,15 +14,17 @@ import optax
 import tyro
 from jaxtyping import Array, Float, PRNGKeyArray
 
+from bnn import BNN
+from train import train_bnn
 from train import train_det_ens, train_det_net
 from utils import (
     create_test_grid,
     create_uncertainty_plot,
     gen_data,
-    plot_heatmap,
     pred_ensemble,
     uncertainty_decomposition,
 )
+from utils import pred_bnn_ensemble, uncertainty_decomposition_bnn
 
 
 def rbf_median(
@@ -113,6 +115,10 @@ def main(cfg: Config) -> None:
 
     optim = optax.adamw(cfg.lr)
 
+    aspect_ratio = (cfg.x_up_bound - cfg.x_low_bound) / (
+            cfg.y_up_bound - cfg.y_low_bound
+    )
+
     # Define network constructor
     if "det" in cfg.model:
         def get_det(key: PRNGKeyArray) -> eqx.nn.MLP:
@@ -131,6 +137,7 @@ def main(cfg: Config) -> None:
         key, det_key = jrandom.split(key)
         model = get_det(det_key)
         model = train_det_net(model, data, optim, cfg.n_steps)
+
     
         pred_grid = jax.vmap(model)(grid).squeeze()
         chex.assert_shape(pred_grid, (grid.shape[0],))
@@ -141,10 +148,6 @@ def main(cfg: Config) -> None:
         epistemic = jnp.zeros_like(aleatoric)  # Zero epistemic for deterministic
 
 
-        aspect_ratio = (cfg.x_up_bound - cfg.x_low_bound) / (
-            cfg.y_up_bound - cfg.y_low_bound
-        )
-    
         create_uncertainty_plot(
             total, 
             aleatoric, 
@@ -172,9 +175,6 @@ def main(cfg: Config) -> None:
         total, aleatoric, epistemic = uncertainty_decomposition(pred_grid)
 
 
-        aspect_ratio = (cfg.x_up_bound - cfg.x_low_bound) / (
-            cfg.y_up_bound - cfg.y_low_bound
-        )
 
         create_uncertainty_plot(
             total,
@@ -190,7 +190,42 @@ def main(cfg: Config) -> None:
     elif cfg.model == "det_repulsive":
         raise NotImplementedError("det_repulsive not yet implemented")
     elif cfg.model == "bnn_single":
-        raise NotImplementedError("bnn_single not yet implemented")
+        key, model_key, train_key, pred_key = jrandom.split(key, 4)
+        model = BNN(
+            in_size=2,
+            out_size=1,
+            width_size=cfg.width,
+            depth=cfg.depth,
+            key=model_key
+        )
+
+        model, train_key = train_bnn(
+            model,
+            data,
+            optim,
+            steps=cfg.n_steps,
+            kl_weight=1,
+            n_samples=1,
+            key=train_key
+        )
+
+        # Predict
+        n_mc_samples = cfg.n_ens
+        prob_grid = pred_bnn_ensemble(model, grid, n_mc_samples, pred_key)
+        print(f"{prob_grid.shape = }")
+        # mean_pred = prob_grid.mean(axis=1)
+        total, aleatoric, epistemic = uncertainty_decomposition_bnn(prob_grid)
+
+        create_uncertainty_plot(
+            total,
+            aleatoric,
+            epistemic,
+            grid,
+            data,
+            aspect_ratio,
+            shared_colorbar=True,
+            title_prefix="BNN",
+        )
     elif cfg.model == "bnn_repulsive":
         raise NotImplementedError("bnn_repulsive not yet implemented")
     elif cfg.model == "bnn_ensemble":
@@ -201,8 +236,8 @@ def main(cfg: Config) -> None:
         raise ValueError(f"Unknown model: {cfg.model}")
 
     plt.tight_layout()
-    plt.savefig(f"{cfg.save_name}.pdf", dpi=150, bbox_inches="tight")
-    print(f"Saved plot to {cfg.save_name}.pdf")
+    plt.savefig(f"figures/{cfg.save_name}.pdf", dpi=150, bbox_inches="tight")
+    print(f"Saved plot to figures/{cfg.save_name}.pdf")
 
 
 if __name__ == "__main__":
