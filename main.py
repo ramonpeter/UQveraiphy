@@ -131,11 +131,32 @@ def main(cfg: Config) -> None:
         key, det_key = jrandom.split(key)
         model = get_det(det_key)
         model = train_det_net(model, data, optim, cfg.n_steps)
-
+    
         pred_grid = jax.vmap(model)(grid).squeeze()
         chex.assert_shape(pred_grid, (grid.shape[0],))
+    
+        # Create uncertainty components for plotting
+        total = pred_grid * (1 - pred_grid)  
+        aleatoric = total # identical for an MLE estimator
+        epistemic = jnp.zeros_like(aleatoric)  # Zero epistemic for deterministic
 
-        plot_heatmap(pred_grid, grid, data, title="Deterministic Network")
+
+        aspect_ratio = (cfg.x_up_bound - cfg.x_low_bound) / (
+            cfg.y_up_bound - cfg.y_low_bound
+        )
+    
+        create_uncertainty_plot(
+            total, 
+            aleatoric, 
+            epistemic,
+            grid, 
+            data, 
+            aspect_ratio,
+            shared_colorbar=True,
+            title_prefix="Deterministic Network"
+        )
+
+
 
     elif cfg.model == "det_ensemble":
         key, *ens_keys = jrandom.split(key, cfg.n_ens + 1)
@@ -149,6 +170,7 @@ def main(cfg: Config) -> None:
 
         # Uncertainty decomposition
         total, aleatoric, epistemic = uncertainty_decomposition(pred_grid)
+
 
         aspect_ratio = (cfg.x_up_bound - cfg.x_low_bound) / (
             cfg.y_up_bound - cfg.y_low_bound
