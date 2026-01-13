@@ -12,14 +12,14 @@ class VBLinear(nn.Module):
         in_features,
         out_features,
         prior_prec=1.0,
-        _map=False,
+        use_map=False,
         std_init=-9,
         bayesian_bias=False,
     ):
         super().__init__()
         self.n_in = in_features
         self.n_out = out_features
-        self.map = _map
+        self.map = use_map
         self.prior_prec = prior_prec
         self.random = None
         self.lbound = -30 if torch.get_default_dtype() == torch.float64 else -20
@@ -57,7 +57,11 @@ class VBLinear(nn.Module):
             state, device=self.logsig2_w.device, dtype=self.logsig2_w.dtype
         )
 
-    def KL(self):
+    def kl_loss(self) -> torch.Tensor:
+        r"""Compute KL divergence between posterior and prior.
+        KL = \int q(w) log(q(w)/p(w)) dw
+        where q(w) is the posterior and p(w) is the prior.
+        """
         logsig2_w = self.logsig2_w.clamp(self.lbound, 11)
         kl = (
             0.5
@@ -68,17 +72,6 @@ class VBLinear(nn.Module):
                 - math.log(self.prior_prec)
             ).sum()
         )
-        if self.bayesian_bias:
-            logsig2_b = self.bias_logsig2.clamp(-30, 11)
-            kl += (
-                0.5
-                * (
-                    self.prior_prec * (self.bias.pow(2) + logsig2_b.exp())
-                    - logsig2_b
-                    - 1
-                    - math.log(self.prior_prec)
-                ).sum()
-            )
         return kl
 
     def forward(self, input):
@@ -130,3 +123,44 @@ class VBLinear(nn.Module):
             yield
         finally:
             self.map = prev_mode
+
+
+class StackedLinear(nn.Module):
+    "Efficient implementation of linear layers for ensembles of networks"
+
+    def __init__(self, in_features, out_features, members, init="kaiming"):
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.members = members
+        self.init = init
+        self.weight = nn.Parameter(torch.empty((members, out_features, in_features)))
+        self.bias = nn.Parameter(torch.empty((members, out_features)))
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        if self.init == "same":
+            torch.nn.init.kaiming_uniform_(self.weight[0], a=math.sqrt(5))
+            fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.weight[0])
+            bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+            torch.nn.init.uniform_(self.bias[0], -bound, bound)
+            for i in range(self.members):
+                with torch.no_grad():
+                    self.weight[i].copy_(self.weight[0])
+                    self.bias[i].copy_(self.bias[0])
+        elif self.init == "kaiming":
+            for i in range(self.members):
+                torch.nn.init.kaiming_uniform_(self.weight[i], a=math.sqrt(5))
+                fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.weight[i])
+                bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+                torch.nn.init.uniform_(self.bias[i], -bound, bound)
+        elif self.init == "vblinear":
+            for i in range(self.members):
+                stdv = 1.0 / math.sqrt(self.weight.size(2))
+                self.weight[i].data.normal_(0, stdv)
+                self.bias[i].data.zero_()
+        else:
+            raise ValueError("Unknown initialization")
+
+    def forward(self, input):
+        return torch.baddbmm(self.bias[:, None, :], input, self.weight.transpose(1, 2))
