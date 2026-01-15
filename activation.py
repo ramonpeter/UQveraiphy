@@ -1,6 +1,15 @@
 from typing import Callable
 
+import torch
 import torch.nn as nn
+
+
+class Sin(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return torch.sin(x)
 
 
 def switchable_activation(activation: str = "gelu") -> Callable:
@@ -21,5 +30,7 @@ def switchable_activation(activation: str = "gelu") -> Callable:
             return nn.Tanh()
         case "elu":
             return nn.ELU()
+        case "sin":
+            return Sin()
         case _:
             raise ValueError(f"Activation function {activation} not supported")
