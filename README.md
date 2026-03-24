@@ -2,7 +2,7 @@
 
 This repository contains reproducible toy examples, figures, and Jupyter notebooks accompanying the VERaiPHY article on uncertainty quantification in machine learning.
 
-The material is intended to illustrate core uncertainty quantification concepts in simple and controlled settings, with a particular focus on regression, classification, and Bayesian variational methods.
+The material is intended to illustrate core uncertainty quantification concepts in simple and controlled settings, with a particular focus on regression, classification, and a Bernstein--von Mises example.
 
 ## Contents
 
@@ -14,8 +14,8 @@ The repository is organised into a small number of self-contained example folder
 - `classification/`  
   Toy classification examples and notebooks illustrating uncertainty-aware classification and associated validation tools.
 
-- `bvm-example/`  
-  Material related to the Bernstein--von Mises example used in Section 3, currently consisting of a figure and supporting assets.
+- `bvm_example/`
+  Material related to the Bernstein--von Mises example used in Section 3, currently provided as the notebook `chapter3_bvm.ipynb`.
 
 ## Purpose
 

@@ -43,6 +43,11 @@ To reproduce the combined comparison plots, open and run
 
 which reads the precomputed files from the `results/` subdirectory.
 
+## Implementation note
+
+The regression benchmarks in this folder are implemented in PyTorch.
+By contrast, the classification examples in this repository are implemented in JAX.
+
 ## Notes
 
 The notebooks are intended as illustrative toy examples accompanying the article, rather than as a standalone software package. The emphasis is therefore on clarity and reproducibility of the examples.
