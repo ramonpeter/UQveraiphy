@@ -22,6 +22,25 @@ def generate_data(n_samples: int, unc: float = 0.2, seed: int | None = None):
     return x, y_noise
 
 
+# Get some simple toy function
+def generate_data_test(n_samples: int, unc: float = 0.2, seed: int | None = None):
+    """
+    Simple 1D regression problem based
+    """
+    if seed is not None:
+        np.random.seed(seed)
+    x = np.concatenate(
+        (
+            np.random.uniform(-1.2, -1.0, n_samples // 3),
+            np.random.uniform(-0.22, 0.22, n_samples // 3),
+            np.random.uniform(1.0, 1.2, n_samples - n_samples // 3 * 2),
+        )
+    )
+    y = 0.5 * np.sin(23 * x) + x / 2
+    y_noise = y + np.random.randn(n_samples) * unc
+    return x, y_noise
+
+
 def kernel(x: torch.Tensor, y: torch.Tensor, sigma=None):
     "RBF kernel with median estimator"
     channels = len(x)
