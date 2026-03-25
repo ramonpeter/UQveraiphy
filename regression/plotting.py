@@ -120,10 +120,11 @@ def make_pull_fig(
     y_stds: list[np.ndarray],
     network_names: list[str] = ["BNN"],
     filename: str | None = None,
+    title: str | None = "in-training domain",
 ):
     colors = ["#D55E00", "#0072B2", "#009E73", "#CC79A7", "#E69F00"]
     fig, ax = plt.subplots(figsize=(6, 4.5))
-    fig.tight_layout(pad=0.0, w_pad=0.0, h_pad=0.0, rect=(0.08, 0.10, 0.98, 0.98))
+    fig.tight_layout(pad=0.0, w_pad=0.0, h_pad=0.0, rect=(0.08, 0.10, 0.98, 0.95))
     y_truth = 0.5 * np.sin(23 * x_values[0]) + x_values[0] / 2
     for i, (y_mean, y_std, network_name) in enumerate(
         zip(y_means, y_stds, network_names)
@@ -146,6 +147,7 @@ def make_pull_fig(
         label="Normal",
         linewidth=1,
     )
+    ax.set_title(title, loc="right", fontsize=FONTSIZE - 2)
     ax.legend(
         fontsize=FONTSIZE - 2,
         loc="upper left",
@@ -169,12 +171,13 @@ def make_calibration_fig(
     y_stds: list[np.ndarray],
     network_names: list[str] = ["BNN"],
     filename: str | None = None,
+    title: str | None = "in-training domain",
 ):
     colors = ["#D55E00", "#0072B2", "#009E73", "#CC79A7", "#E69F00"]
     # Nominal confidence levels
     levels = np.linspace(0.05, 0.99, 50)
     fig, ax = plt.subplots(figsize=(6, 4.5))
-    fig.tight_layout(pad=0.0, w_pad=0.0, h_pad=0.0, rect=(0.08, 0.10, 0.98, 0.98))
+    fig.tight_layout(pad=0.0, w_pad=0.0, h_pad=0.0, rect=(0.08, 0.10, 0.98, 0.95))
     for i, (y_mean, y_std, y_test, network_name) in enumerate(
         zip(y_means, y_stds, y_tests, network_names)
     ):
@@ -192,6 +195,7 @@ def make_calibration_fig(
     ax.plot(levels, levels, "--", label="Ideal", color="black", linewidth=1)
     ax.set_xlabel("Nominal confidence level")
     ax.set_ylabel("Empirical coverage")
+    ax.set_title(title, loc="right", fontsize=FONTSIZE - 2)
     ax.legend(
         fontsize=FONTSIZE - 2,
         loc="upper left",
