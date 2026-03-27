@@ -193,7 +193,7 @@ def make_calibration_fig(
             levels, empirical_coverage, label=network_name, color=colors[i], linewidth=2
         )
     ax.plot(levels, levels, "--", label="Ideal", color="black", linewidth=1)
-    ax.set_xlabel("Nominal confidence level")
+    ax.set_xlabel("Nominal coverage level")
     ax.set_ylabel("Empirical coverage")
     ax.set_title(title, loc="right", fontsize=FONTSIZE - 2)
     ax.legend(
