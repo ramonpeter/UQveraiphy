@@ -2,17 +2,30 @@ import jax
 from jax import numpy as jnp
 from jaxtyping import Float, Array
 from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
 from matplotlib.colors import LinearSegmentedColormap
 
 from .utils import ber_entropy, uncertainty_decomposition
 
 
-def _create_class_colormap():
+def _create_class_colormap() -> LinearSegmentedColormap:
     colors = plt.cm.tab10.colors[:2]
     return LinearSegmentedColormap.from_list("class_colors", [colors[0], colors[1]])
 
 
-def _plot_subplot(ax, grid, vals, X, y, cmap, vmin, vmax, x_lim, y_lim, is_first_plot):
+def _plot_subplot(
+    ax: Axes,
+    grid: Float[Array, "n 2"],
+    vals: Float[Array, "n"],
+    X: Float[Array, "m 2"],
+    y: Float[Array, "m"],
+    cmap: LinearSegmentedColormap | str,
+    vmin: float,
+    vmax: float,
+    x_lim: tuple[float, float],
+    y_lim: tuple[float, float],
+    is_first_plot: bool,
+) -> None:
     ax.scatter(
         grid[:, 0],
         grid[:, 1],
@@ -50,7 +63,7 @@ def plot_res_det(
     x_lim: tuple[float, float],
     y_lim: tuple[float, float],
     title: str | None = None,
-):
+) -> None:
     preds = jax.nn.sigmoid(logits)
     pred_mean = preds
     pred_entr = ber_entropy(preds)
@@ -82,7 +95,7 @@ def plot_res_sample(
     logits: Float[Array, "n samples"] | None = None,
     decomposed: dict[str, Float[Array, "n"]] | None = None,
     title: str | None = None,
-):
+) -> None:
     if decomposed:
         pred_mean = decomposed["probs"]
         pred_entr = decomposed["total"]
