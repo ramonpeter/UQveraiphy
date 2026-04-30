@@ -1,6 +1,6 @@
 # Classification examples
 
-This folder contains the toy classification benchmarks accompanying the VERaIPHY uncertainty quantification study.
+This folder contains the toy classification benchmarks accompanying the VERaiPHY uncertainty quantification study.
 
 The examples are designed to illustrate and compare different approaches to predictive uncertainty quantification in a binary classification setting using a two-moons dataset. In particular, the code covers a deterministic MLP, a deep ensemble, a repulsive ensemble, mean-field variational inference, and Hamiltonian Monte Carlo (NUTS), together with standard diagnostics such as Brier score and expected calibration error (ECE).
 

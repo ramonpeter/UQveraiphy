@@ -25,7 +25,7 @@ except Exception:
     plt.rc("text", usetex=False)
     plt.rc("font", family="serif", size=FONTSIZE)
 
-plt.rc("axes", titlesize="medium")
+plt.rc("axes", titlesize=FONTSIZE)
 
 
 def make_error_fig(
@@ -55,7 +55,7 @@ def make_error_fig(
             y_mean + z * y_std_epistemic,
             alpha=0.2,
             color=colors[1],
-            label=rf"{int(CI*100)}\% CI (epistemic)",
+            label=rf"{int(CI*100)}\% interval (epistemic)",
         )
         ax.fill_between(
             x_values,
@@ -63,7 +63,7 @@ def make_error_fig(
             y_mean + z * y_std_aleatoric,
             alpha=0.2,
             color=colors[0],
-            label=rf"{int(CI*100)}\% CI (aleatoric)",
+            label=rf"{int(CI*100)}\% interval (aleatoric)",
         )
     else:
         ci_lower, ci_upper = ci_lower_upper
@@ -73,7 +73,7 @@ def make_error_fig(
             ci_upper,
             alpha=0.2,
             color=colors[1],
-            label=rf"{int(CI*100)}\% CI (total)",
+            label=rf"{int(CI*100)}\% PI (total)",
         )
     ax.axvspan(-0.22, 0.22, color="gray", alpha=0.2)
     ax.axvspan(1, 1.2, color="gray", alpha=0.2)
@@ -193,7 +193,7 @@ def make_calibration_fig(
             levels, empirical_coverage, label=network_name, color=colors[i], linewidth=2
         )
     ax.plot(levels, levels, "--", label="Ideal", color="black", linewidth=1)
-    ax.set_xlabel("Nominal confidence level")
+    ax.set_xlabel("Nominal coverage level")
     ax.set_ylabel("Empirical coverage")
     ax.set_title(title, loc="right", fontsize=FONTSIZE - 2)
     ax.legend(
