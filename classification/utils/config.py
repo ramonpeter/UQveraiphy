@@ -22,3 +22,5 @@ class Config:
     # HMC
     num_samples: int = 500
     num_warmup: int = 500
+    # plotting
+    data_alpha: float = 0.9
