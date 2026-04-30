@@ -25,7 +25,7 @@ except Exception:
     plt.rc("text", usetex=False)
     plt.rc("font", family="serif", size=FONTSIZE)
 
-plt.rc("axes", titlesize="medium")
+plt.rc("axes", titlesize=FONTSIZE)
 
 
 def make_error_fig(
