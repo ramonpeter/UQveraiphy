@@ -7,12 +7,11 @@ from matplotlib.colors import LinearSegmentedColormap
 
 from .utils import ber_entropy, uncertainty_decomposition
 
-_CLASS_COLORS = (plt.cm.tab10.colors[2], plt.cm.tab10.colors[1])  # green, orange
+_CLASS_COLORS = (plt.cm.tab10.colors[9], plt.cm.tab10.colors[1])  # cyan, orange
 
 
 def _create_class_colormap() -> LinearSegmentedColormap:
-    tab10 = plt.cm.tab10.colors
-    return LinearSegmentedColormap.from_list("class_colors", [tab10[2], tab10[1]])
+    return LinearSegmentedColormap.from_list("class_colors", [_CLASS_COLORS[0], _CLASS_COLORS[1]])
 
 
 def _plot_subplot(
