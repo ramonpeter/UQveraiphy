@@ -7,10 +7,12 @@ from matplotlib.colors import LinearSegmentedColormap
 
 from .utils import ber_entropy, uncertainty_decomposition
 
+_CLASS_COLORS = (plt.cm.tab10.colors[2], plt.cm.tab10.colors[1])  # green, orange
+
 
 def _create_class_colormap() -> LinearSegmentedColormap:
-    colors = plt.cm.tab10.colors[:2]
-    return LinearSegmentedColormap.from_list("class_colors", [colors[0], colors[1]])
+    tab10 = plt.cm.tab10.colors
+    return LinearSegmentedColormap.from_list("class_colors", [tab10[2], tab10[1]])
 
 
 def _plot_subplot(
@@ -25,6 +27,7 @@ def _plot_subplot(
     x_lim: tuple[float, float],
     y_lim: tuple[float, float],
     is_first_plot: bool,
+    data_alpha: float,
 ) -> None:
     ax.scatter(
         grid[:, 0],
@@ -36,15 +39,15 @@ def _plot_subplot(
         rasterized=True,
     )
 
-    alpha = 1.0 if is_first_plot else 0.7
     linewidth = 0.8 if is_first_plot else 0.4
 
     for c in range(2):
         ax.scatter(
             X[y == c, 0],
             X[y == c, 1],
+            color=_CLASS_COLORS[c],
             s=20,
-            alpha=alpha,
+            alpha=data_alpha,
             edgecolors="black",
             linewidths=linewidth,
             rasterized=False,
@@ -63,6 +66,7 @@ def plot_res_det(
     x_lim: tuple[float, float],
     y_lim: tuple[float, float],
     title: str | None = None,
+    data_alpha: float = 0.9,
 ) -> None:
     preds = jax.nn.sigmoid(logits)
     pred_mean = preds
@@ -79,11 +83,22 @@ def plot_res_det(
     max_entropy = -jnp.log(0.5)
 
     for i, (vals, current_cmap, vmin, vmax) in enumerate(
-        [(pred_mean, cmap, 0, 1), (pred_entr, "viridis", 0, max_entropy)], 1
+        [(pred_mean, cmap, 0, 1), (pred_entr, "cividis", 0, max_entropy)], 1
     ):
         ax = plt.subplot(1, 2, i)
         _plot_subplot(
-            ax, grid, vals, X, y, current_cmap, vmin, vmax, x_lim, y_lim, i == 1
+            ax,
+            grid,
+            vals,
+            X,
+            y,
+            current_cmap,
+            vmin,
+            vmax,
+            x_lim,
+            y_lim,
+            i == 1,
+            data_alpha,
         )
 
 
@@ -95,6 +110,7 @@ def plot_res_sample(
     logits: Float[Array, "n samples"] | None = None,
     decomposed: dict[str, Float[Array, "n"]] | None = None,
     title: str | None = None,
+    data_alpha: float = 0.9,
 ) -> None:
     if decomposed:
         pred_mean = decomposed["probs"]
@@ -120,13 +136,24 @@ def plot_res_sample(
     for i, (vals, current_cmap, vmin, vmax) in enumerate(
         [
             (pred_mean, cmap, 0, 1),
-            (pred_entr, "viridis", 0, max_entropy),
-            (aleatoric, "viridis", 0, max_entropy),
-            (epistemic, "viridis", 0, max_entropy),
+            (pred_entr, "cividis", 0, max_entropy),
+            (aleatoric, "cividis", 0, max_entropy),
+            (epistemic, "cividis", 0, max_entropy),
         ],
         1,
     ):
         ax = plt.subplot(1, 4, i)
         _plot_subplot(
-            ax, grid, vals, X, y, current_cmap, vmin, vmax, x_lim, y_lim, i == 1
+            ax,
+            grid,
+            vals,
+            X,
+            y,
+            current_cmap,
+            vmin,
+            vmax,
+            x_lim,
+            y_lim,
+            i == 1,
+            data_alpha,
         )
